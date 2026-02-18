@@ -1,0 +1,105 @@
+@extends('layouts.app')
+
+@section('title', 'Editar evento')
+
+@section('content')
+<h1 class="text-3xl font-bold mb-6">Editar evento</h1>
+
+<form method="POST" action="{{ route('organizer.events.update', $event) }}" class="space-y-6 max-w-3xl">
+    @csrf
+    @method('PUT')
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <h2 class="font-semibold text-lg">Información general</h2>
+        <div>
+            <label for="title" class="block text-sm font-medium text-slate-700 mb-1">Título *</label>
+            <input type="text" name="title" id="title" value="{{ old('title', $event->title) }}" required class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+            @error('title')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label for="category_id" class="block text-sm font-medium text-slate-700 mb-1">Categoría *</label>
+            <select name="category_id" id="category_id" required class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                @foreach($categories as $cat)
+                    <option value="{{ $cat->id }}" {{ old('category_id', $event->category_id) == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label for="description" class="block text-sm font-medium text-slate-700 mb-1">Descripción *</label>
+            <textarea name="description" id="description" rows="4" required class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('description', $event->description) }}</textarea>
+        </div>
+        <div>
+            <label for="venue_name" class="block text-sm font-medium text-slate-700 mb-1">Nombre del lugar *</label>
+            <input type="text" name="venue_name" id="venue_name" value="{{ old('venue_name', $event->venue_name) }}" required class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+        </div>
+        <div>
+            <label for="venue_address" class="block text-sm font-medium text-slate-700 mb-1">Dirección *</label>
+            <input type="text" name="venue_address" id="venue_address" value="{{ old('venue_address', $event->venue_address) }}" required class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label for="city" class="block text-sm font-medium text-slate-700 mb-1">Ciudad *</label>
+                <input type="text" name="city" id="city" value="{{ old('city', $event->city) }}" required class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+            </div>
+            <div>
+                <label for="country" class="block text-sm font-medium text-slate-700 mb-1">País</label>
+                <input type="text" name="country" id="country" value="{{ old('country', $event->country) }}" class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label for="start_date" class="block text-sm font-medium text-slate-700 mb-1">Fecha y hora inicio *</label>
+                <input type="datetime-local" name="start_date" id="start_date" value="{{ old('start_date', $event->start_date?->format('Y-m-d\TH:i')) }}" required class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+            </div>
+            <div>
+                <label for="end_date" class="block text-sm font-medium text-slate-700 mb-1">Fecha y hora fin</label>
+                <input type="datetime-local" name="end_date" id="end_date" value="{{ old('end_date', $event->end_date?->format('Y-m-d\TH:i')) }}" class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+            </div>
+        </div>
+        <div>
+            <label for="status" class="block text-sm font-medium text-slate-700 mb-1">Estado</label>
+            <select name="status" id="status" class="rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <option value="draft" {{ old('status', $event->status) === 'draft' ? 'selected' : '' }}>Borrador</option>
+                <option value="pending_approval" {{ old('status', $event->status) === 'pending_approval' ? 'selected' : '' }}>Enviar a revisión (publicar)</option>
+                <option value="cancelled" {{ old('status', $event->status) === 'cancelled' ? 'selected' : '' }}>Cancelado</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="font-semibold text-lg mb-4">Tipos de entrada</h2>
+        <div id="ticket-types" class="space-y-4">
+            @foreach($event->ticketTypes as $idx => $tt)
+                <div class="ticket-type-row flex flex-wrap gap-4 p-4 bg-slate-50 rounded-lg">
+                    <input type="hidden" name="ticket_types[{{ $idx }}][id]" value="{{ $tt->id }}">
+                    <input type="text" name="ticket_types[{{ $idx }}][name]" value="{{ old("ticket_types.{$idx}.name", $tt->name) }}" placeholder="Nombre" class="flex-1 min-w-[120px] rounded-lg border-slate-300 shadow-sm">
+                    <input type="number" name="ticket_types[{{ $idx }}][price]" value="{{ old("ticket_types.{$idx}.price", $tt->price) }}" step="0.01" min="0" class="w-24 rounded-lg border-slate-300 shadow-sm">
+                    <input type="number" name="ticket_types[{{ $idx }}][quantity]" value="{{ old("ticket_types.{$idx}.quantity", $tt->quantity) }}" min="1" class="w-24 rounded-lg border-slate-300 shadow-sm">
+                    <input type="text" name="ticket_types[{{ $idx }}][description]" value="{{ old("ticket_types.{$idx}.description", $tt->description) }}" placeholder="Descripción" class="flex-1 min-w-[120px] rounded-lg border-slate-300 shadow-sm">
+                </div>
+            @endforeach
+        </div>
+        <button type="button" id="add-ticket-type" class="mt-2 text-sm text-indigo-600 hover:underline">+ Añadir otro tipo de entrada</button>
+    </div>
+
+    <div class="flex gap-2">
+        <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Guardar</button>
+        <a href="{{ route('organizer.events.index') }}" class="px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300">Cancelar</a>
+    </div>
+</form>
+
+<script>
+document.getElementById('add-ticket-type').addEventListener('click', function() {
+    const container = document.getElementById('ticket-types');
+    const index = container.querySelectorAll('.ticket-type-row').length;
+    const div = document.createElement('div');
+    div.className = 'ticket-type-row flex flex-wrap gap-4 p-4 bg-slate-50 rounded-lg';
+    div.innerHTML = `
+        <input type="text" name="ticket_types[${index}][name]" placeholder="Nombre" class="flex-1 min-w-[120px] rounded-lg border-slate-300 shadow-sm">
+        <input type="number" name="ticket_types[${index}][price]" placeholder="Precio" step="0.01" min="0" class="w-24 rounded-lg border-slate-300 shadow-sm">
+        <input type="number" name="ticket_types[${index}][quantity]" placeholder="Cantidad" min="1" class="w-24 rounded-lg border-slate-300 shadow-sm">
+        <input type="text" name="ticket_types[${index}][description]" placeholder="Descripción" class="flex-1 min-w-[120px] rounded-lg border-slate-300 shadow-sm">
+    `;
+    container.appendChild(div);
+});
+</script>
+@endsection

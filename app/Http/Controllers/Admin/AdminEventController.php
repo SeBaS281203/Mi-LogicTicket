@@ -1,0 +1,46 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Event;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class AdminEventController extends Controller
+{
+    public function index(Request $request): View
+    {
+        $query = Event::with(['user', 'category']);
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('q')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('title', 'like', '%' . $request->q . '%')
+                    ->orWhere('city', 'like', '%' . $request->q . '%');
+            });
+        }
+        $events = $query->latest()->paginate(15);
+        return view('admin.events.index', compact('events'));
+    }
+
+    public function show(Event $event): View
+    {
+        $event->load(['user', 'category', 'ticketTypes']);
+        return view('admin.events.show', compact('event'));
+    }
+
+    public function approve(Event $event): RedirectResponse
+    {
+        $event->update(['status' => 'published']);
+        return redirect()->route('admin.events.index')->with('success', 'Evento aprobado y publicado.');
+    }
+
+    public function reject(Event $event): RedirectResponse
+    {
+        $event->update(['status' => 'draft']);
+        return redirect()->route('admin.events.index')->with('success', 'Evento rechazado (vuelve a borrador).');
+    }
+}
