@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -33,6 +34,7 @@ class CategoryController extends Controller
         $validated['slug'] = $validated['slug'] ?? Str::slug($validated['name']);
         $validated['is_active'] = $request->boolean('is_active', true);
         Category::create($validated);
+        Cache::forget('categories_active');
         return redirect()->route('admin.categories.index')->with('success', 'Categoría creada.');
     }
 
@@ -52,6 +54,7 @@ class CategoryController extends Controller
         $validated['slug'] = $validated['slug'] ?? Str::slug($validated['name']);
         $validated['is_active'] = $request->boolean('is_active', true);
         $category->update($validated);
+        Cache::forget('categories_active');
         return redirect()->route('admin.categories.index')->with('success', 'Categoría actualizada.');
     }
 
@@ -61,6 +64,7 @@ class CategoryController extends Controller
             return back()->with('error', 'No se puede eliminar: tiene eventos asociados.');
         }
         $category->delete();
+        Cache::forget('categories_active');
         return redirect()->route('admin.categories.index')->with('success', 'Categoría eliminada.');
     }
 }

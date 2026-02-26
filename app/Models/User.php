@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole as UserRoleEnum;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -20,10 +21,22 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'email',
         'password',
         'role',
         'phone',
+        'ruc',
+        'country',
+        'city',
+        'document_type',
+        'document_number',
+        'gender',
+        'organization_name',
+        'organization_address',
+        'marketing_consent',
+        'terms_accepted_at',
     ];
 
     /**
@@ -46,6 +59,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'marketing_consent' => 'boolean',
+            'terms_accepted_at' => 'datetime',
         ];
     }
 
@@ -66,11 +81,24 @@ class User extends Authenticatable
 
     public function isOrganizer(): bool
     {
-        return $this->role === 'organizer' || $this->isAdmin();
+        return $this->role === 'organizer';
     }
 
     public function isClient(): bool
     {
         return $this->role === 'client';
+    }
+
+    public function roleEnum(): ?UserRoleEnum
+    {
+        return UserRoleEnum::tryFrom($this->role ?? '');
+    }
+
+    /**
+     * Enviar la notificación de restablecimiento de contraseña.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
     }
 }

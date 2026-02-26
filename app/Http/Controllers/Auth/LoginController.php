@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\AuthRedirectService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,10 +12,14 @@ use Illuminate\View\View;
 
 class LoginController extends Controller
 {
+    public function __construct(
+        private AuthRedirectService $authRedirect
+    ) {}
+
     public function showLoginForm(): View|RedirectResponse
     {
         if (Auth::check()) {
-            return redirect()->route('home');
+            return redirect($this->authRedirect->defaultUrlForUser(Auth::user()));
         }
         return redirect()->route('home', ['auth' => 'login']);
     }
@@ -26,7 +31,7 @@ class LoginController extends Controller
 
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
-            return redirect()->intended(route('home'));
+            return $this->authRedirect->redirectAfterLogin(Auth::user(), redirect());
         }
 
         return back()->withErrors([

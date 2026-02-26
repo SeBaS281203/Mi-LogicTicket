@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Models\LibroReclamacion;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
@@ -14,7 +15,7 @@ use Illuminate\Queue\SerializesModels;
  * Confirmación automática al consumidor tras registrar reclamo/queja.
  * Incluye constancia en PDF según INDECOPI.
  */
-class ReclamacionRegistradaMail extends Mailable
+class ReclamacionRegistradaMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

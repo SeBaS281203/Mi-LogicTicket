@@ -1,0 +1,15 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PaymentController;
+
+// MercadoPago Success/Failure/Pending pages
+Route::get('/payment/success', [PaymentController::class, 'success'])->name('payment.success');
+Route::get('/payment/failure', [PaymentController::class, 'failure'])->name('payment.failure');
+Route::get('/payment/pending', [PaymentController::class, 'pending'])->name('payment.pending');
+
+// API Routes for payments
+Route::prefix('api/payments')->group(function () {
+    Route::post('/create-preference', [PaymentController::class, 'createPreference'])->middleware(['auth', 'throttle:10,1']);
+    Route::post('/webhook', [PaymentController::class, 'webhook'])->name('payment.webhook');
+});

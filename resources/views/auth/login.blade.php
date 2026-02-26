@@ -1,7 +1,7 @@
 @extends('layouts.guest')
 
 @section('title', 'Iniciar sesión')
-@section('meta_description', 'Inicia sesión en LogicTicket y compra entradas para conciertos, deportes y eventos.')
+@section('meta_description', 'Inicia sesión en ChiclayoTicket y compra entradas para conciertos, deportes y eventos.')
 
 @section('content')
 <div class="min-h-screen flex flex-col lg:flex-row">
@@ -40,8 +40,8 @@
         <div class="w-full max-w-[400px]">
             {{-- Logo / marca --}}
             <a href="{{ route('home') }}" class="inline-flex items-center gap-2.5 text-[#1f2937] font-bold text-xl mb-8">
-                <span class="w-10 h-10 rounded-xl bg-brand flex items-center justify-center text-white text-lg font-extrabold shadow-sm">L</span>
-                LogicTicket
+                <span class="w-10 h-10 rounded-xl bg-brand flex items-center justify-center text-white text-lg font-extrabold shadow-sm">C</span>
+                ChiclayoTicket
             </a>
 
             <div class="bg-white lg:bg-transparent rounded-2xl lg:rounded-none shadow-xl lg:shadow-none border-0 lg:border-0 border-neutral-100 p-6 sm:p-8">

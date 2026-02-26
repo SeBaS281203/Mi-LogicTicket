@@ -6,9 +6,9 @@
 <h1 class="text-3xl font-bold mb-6">Editar banner</h1>
 
 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 max-w-lg">
-    @if($banner->image)
+    @if($banner->image_url)
         <p class="text-sm text-slate-500 mb-2">Imagen actual:</p>
-        <img src="{{ asset('storage/' . $banner->image) }}" alt="" class="h-24 object-cover rounded-lg mb-4">
+        <img src="{{ $banner->image_url }}" alt="" class="h-24 object-cover rounded-lg mb-4">
     @endif
     <form method="POST" action="{{ route('admin.banners.update', $banner) }}" enctype="multipart/form-data" class="space-y-4">
         @csrf

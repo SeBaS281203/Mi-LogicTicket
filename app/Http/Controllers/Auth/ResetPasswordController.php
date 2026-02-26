@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\ResetPasswordRequest;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,14 +15,31 @@ class ResetPasswordController extends Controller
 {
     public function showResetForm(Request $request, string $token): View
     {
-        return view('auth.reset-password', [
+        return view('auth.passwords.reset', [
             'token' => $token,
             'email' => $request->email,
         ]);
     }
 
-    public function reset(ResetPasswordRequest $request): RedirectResponse
+    public function reset(Request $request): RedirectResponse
     {
+        $validated = $request->validate(
+            [
+                'token' => ['required'],
+                'email' => ['required', 'email', 'exists:users,email'],
+                'password' => ['required', 'confirmed', 'min:8'],
+            ],
+            [
+                'token.required' => 'El token de restablecimiento es obligatorio.',
+                'email.required' => 'El correo electrónico es obligatorio.',
+                'email.email' => 'El correo electrónico no tiene un formato válido.',
+                'email.exists' => 'No encontramos ningún usuario registrado con ese correo.',
+                'password.required' => 'La nueva contraseña es obligatoria.',
+                'password.confirmed' => 'La confirmación de la contraseña no coincide.',
+                'password.min' => 'La contraseña debe tener al menos :min caracteres.',
+            ]
+        );
+
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user) use ($request) {
@@ -36,9 +52,11 @@ class ResetPasswordController extends Controller
         );
 
         if ($status === Password::PASSWORD_RESET) {
-            return redirect()->route('login')->with('status', __($status));
+            return redirect()->route('password.reset.success');
         }
 
-        return back()->withErrors(['email' => [__($status)]]);
+        return back()->withErrors([
+            'email' => ['Este enlace de restablecimiento no es válido o ha expirado. Solicita uno nuevo.'],
+        ]);
     }
 }

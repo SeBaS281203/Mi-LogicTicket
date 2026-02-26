@@ -55,7 +55,7 @@ class LibroReclamacionController extends Controller
         $reclamo->save();
 
         try {
-            Mail::to($reclamo->email)->send(new ReclamacionRegistradaMail($reclamo));
+            Mail::to($reclamo->email)->queue(new ReclamacionRegistradaMail($reclamo));
         } catch (\Throwable $e) {
             report($e);
         }

@@ -15,22 +15,41 @@ class CartSummaryService
 
     /**
      * @param  array<int, int>  $cart  [ticket_type_id => quantity]
-     * @return array{items: array, subtotal: float, commission_amount: float, total: float}
+     * @return array{items: array, subtotal: float, commission_amount: float, total: float, adjusted_cart: array, warnings: array}
      */
     public function buildFromCart(array $cart): array
     {
         $items = [];
         $subtotal = 0.0;
+        $adjustedCart = [];
+        $warnings = [];
+
+        // Eager load all ticket types from the cart to avoid N+1 issues
+        $ticketTypeIds = array_keys($cart);
+        $ticketTypes = TicketType::with('event')->whereIn('id', $ticketTypeIds)->get()->keyBy('id');
 
         foreach ($cart as $ticketTypeId => $quantity) {
-            $ticketType = TicketType::with('event')->find($ticketTypeId);
-            if (!$ticketType || !$ticketType->isOnSale() || $quantity <= 0) {
+            $ticketType = $ticketTypes->get($ticketTypeId);
+            if (!$ticketType) {
                 continue;
             }
-            $qty = min((int) $quantity, $ticketType->available_quantity);
+            if (!$ticketType->isOnSale()) {
+                $warnings[] = "«{$ticketType->name}» ya no está disponible.";
+                continue;
+            }
+            if ((int) $quantity <= 0) {
+                continue;
+            }
+            $available = $ticketType->available_quantity;
+            $qty = min((int) $quantity, $available);
             if ($qty <= 0) {
+                $warnings[] = "«{$ticketType->name}»: se agotó el stock.";
                 continue;
             }
+            if ($qty < (int) $quantity) {
+                $warnings[] = "«{$ticketType->name}»: solo quedan {$available}. Se ajustó la cantidad.";
+            }
+            $adjustedCart[$ticketTypeId] = $qty;
             $itemSubtotal = (float) $ticketType->price * $qty;
             $subtotal += $itemSubtotal;
             $items[] = (object) [
@@ -48,6 +67,8 @@ class CartSummaryService
             'subtotal' => $subtotal,
             'commission_amount' => $commissionAmount,
             'total' => $total,
+            'adjusted_cart' => $adjustedCart,
+            'warnings' => $warnings,
         ];
     }
 

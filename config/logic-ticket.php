@@ -23,9 +23,9 @@ return [
     ],
 
     'mercadopago' => [
-        'enabled' => ! empty(env('MERCADOPAGO_ACCESS_TOKEN')),
-        'public_key' => env('MERCADOPAGO_PUBLIC_KEY'),
-        'access_token' => env('MERCADOPAGO_ACCESS_TOKEN'),
+        'enabled' => ! empty(env('MP_ACCESS_TOKEN')),
+        'public_key' => env('MP_PUBLIC_KEY'),
+        'access_token' => env('MP_ACCESS_TOKEN'),
         'currency' => 'PEN',
     ],
 

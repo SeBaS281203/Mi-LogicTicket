@@ -6,77 +6,74 @@
 @source '../**/*.js';
 
 /* ==========================================================================
-   LogicTicket – Sistema de diseño unificado
-   Verde corporativo · Gris fondo suave · Inter · Radius 16/20px · Transiciones 0.3s
+   LogicTicket – Sistema de diseño tipo Joinnus
+   Tipografía limpia · Sombras suaves · Bordes redondeados · Espaciado generoso
    ========================================================================== */
 
 @theme {
-  /* Tipografía: Inter (moderna, legible) */
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-
-  /* Verde corporativo principal */
   --color-brand: #00a650;
-  --color-brand-hover: #009345;
-  --color-brand-light: #e6f7ef;
-
-  /* Gris fondo suave */
-  --color-surface: #f5f7fa;
+  --color-brand-hover: #008f42;
+  --color-brand-light: #e8f8ef;
+  --color-surface: #f8fafc;
   --color-surface-elevated: #ffffff;
-
-  /* Border radius consistente: 16px / 20px · Botones rounded-xl (12px) */
-  --radius-button: 0.75rem;   /* 12px – botones */
-  --radius-card: 1rem;       /* 16px */
-  --radius-card-lg: 1.25rem; /* 20px */
-
-  /* Transiciones globales 0.3s */
+  --radius-button: 0.75rem;
+  --radius-card: 1rem;
+  --radius-card-lg: 1.25rem;
+  --radius-xl: 1.5rem;
   --duration-global: 300ms;
   --ease-global: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+  --shadow-card-hover: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-elevated: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.05);
 }
 
-/* Utilidades reutilizables del sistema de diseño */
 @layer components {
-  /* Botón primario (verde) – rounded-xl, transición 0.3s */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 font-semibold rounded-xl transition-all duration-300;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 font-semibold rounded-xl transition-all duration-300 active:scale-[0.98];
     background-color: var(--color-brand);
     color: #fff;
+    box-shadow: var(--shadow-sm);
   }
   .btn-primary:hover {
     background-color: var(--color-brand-hover);
+    box-shadow: 0 4px 12px -2px rgb(0 166 80 / 0.35);
+    transform: translateY(-1px);
   }
   .btn-primary:focus-visible {
     @apply outline-none ring-2 ring-offset-2;
-    ring-color: color-mix(in srgb, var(--color-brand) 40%, transparent);
+    ring-color: color-mix(in srgb, var(--color-brand) 35%, transparent);
   }
 
-  /* Botón secundario (outline) */
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 font-semibold rounded-xl border border-neutral-200 bg-white text-neutral-700 transition-all duration-300 hover:bg-neutral-50 hover:border-neutral-300;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 transition-all duration-300 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98];
   }
 
-  /* Card estándar: blanco, radius 16px, sombra suave */
   .card {
-    @apply bg-white transition-shadow duration-300;
+    @apply bg-white transition-all duration-300;
     border-radius: var(--radius-card);
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
-    border: 1px solid rgb(0 0 0 / 0.05);
+    box-shadow: var(--shadow-card);
+    border: 1px solid rgb(0 0 0 / 0.04);
+  }
+  .card:hover {
+    box-shadow: var(--shadow-card-hover);
   }
   .card-lg {
     border-radius: var(--radius-card-lg);
   }
 
-  /* Transición global para elementos interactivos */
-  .transition-global {
-    transition-duration: var(--duration-global);
-    transition-timing-function: var(--ease-global);
-  }
+  .transition-global { transition-duration: var(--duration-global); transition-timing-function: var(--ease-global); }
+  .rounded-card { border-radius: var(--radius-card); }
+  .rounded-card-lg { border-radius: var(--radius-card-lg); }
 
-  /* Radius consistente por si el tema no genera rounded-card */
-  .rounded-card {
-    border-radius: var(--radius-card);
+  .section-title {
+    @apply text-slate-900 font-bold tracking-tight;
   }
-  .rounded-card-lg {
-    border-radius: var(--radius-card-lg);
+  .section-subtitle {
+    @apply text-xs font-bold uppercase tracking-widest;
+    color: var(--color-brand);
   }
 }
 
@@ -86,4 +83,65 @@
     transition-duration: var(--duration-global);
     transition-timing-function: var(--ease-global);
   }
+}
+
+/* Animaciones UX */
+@layer utilities {
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(1rem); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out forwards;
+  }
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out forwards;
+  }
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out forwards;
+  }
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out forwards;
+  }
+  .animate-toast-in {
+    animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Stagger children */
+  .stagger-children > * {
+    animation: slideUp 0.5s ease-out forwards;
+    opacity: 0;
+  }
+  .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+  .stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+  .stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+  .stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+  .stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+  .stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+  .stagger-children > *:nth-child(7) { animation-delay: 0.35s; }
+  .stagger-children > *:nth-child(8) { animation-delay: 0.4s; }
+  .stagger-children > *:nth-child(9) { animation-delay: 0.45s; }
+  .stagger-children > *:nth-child(10) { animation-delay: 0.5s; }
+  .stagger-children > *:nth-child(n+11) { animation-delay: 0.55s; }
 }

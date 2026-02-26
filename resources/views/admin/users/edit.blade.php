@@ -30,6 +30,10 @@
         <input type="text" name="phone" id="phone" value="{{ old('phone', $user->phone) }}" class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
     </div>
     <div>
+        <label for="ruc" class="block text-sm font-medium text-slate-700 mb-1">RUC</label>
+        <input type="text" name="ruc" id="ruc" value="{{ old('ruc', $user->ruc) }}" maxlength="20" class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Para organizadores">
+    </div>
+    <div>
         <label for="password" class="block text-sm font-medium text-slate-700 mb-1">Nueva contraseña (dejar vacío para no cambiar)</label>
         <input type="password" name="password" id="password" class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
         @error('password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror

@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Organizer;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Event;
+use App\Services\ImageOptimizationService;
 use App\Models\TicketType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -39,6 +41,7 @@ class OrganizerEventController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'status' => 'in:draft,pending_approval',
+            'event_image' => 'nullable|image|max:2048',
         ]);
         $validated['user_id'] = Auth::id();
         $validated['slug'] = Str::slug($validated['title']) . '-' . uniqid();
@@ -46,6 +49,9 @@ class OrganizerEventController extends Controller
             $validated['status'] = 'pending_approval';
         }
         $validated['country'] = $validated['country'] ?? 'Peru';
+        if ($request->hasFile('event_image')) {
+            $validated['event_image'] = app(ImageOptimizationService::class)->storeOptimized($request->file('event_image'), 'events');
+        }
         $event = Event::create($validated);
 
         if ($request->has('ticket_types')) {
@@ -87,31 +93,41 @@ class OrganizerEventController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'status' => 'in:draft,pending_approval,cancelled',
+            'event_image' => 'nullable|image|max:2048',
         ]);
         if (($validated['status'] ?? '') === 'published') {
             $validated['status'] = 'pending_approval';
         }
         $validated['country'] = $validated['country'] ?? 'Peru';
+        if ($request->hasFile('event_image')) {
+            if ($event->event_image) {
+                Storage::disk('public')->delete($event->event_image);
+            }
+            $validated['event_image'] = app(ImageOptimizationService::class)->storeOptimized($request->file('event_image'), 'events');
+        }
         $event->update($validated);
 
         if ($request->has('ticket_types')) {
             $ids = [];
             foreach ($request->ticket_types as $tt) {
                 if (!empty($tt['name']) && isset($tt['price']) && isset($tt['quantity'])) {
+                    $qty = (int) $tt['quantity'];
                     $data = [
                         'name' => $tt['name'],
                         'price' => $tt['price'],
-                        'quantity' => (int) $tt['quantity'],
                         'description' => $tt['description'] ?? null,
                     ];
                     if (!empty($tt['id'])) {
                         $ticketType = TicketType::where('event_id', $event->id)->find($tt['id']);
                         if ($ticketType) {
+                            // No permitir reducir stock por debajo de lo ya vendido
+                            $data['quantity'] = max($qty, $ticketType->quantity_sold);
                             $ticketType->update($data);
                             $ids[] = $ticketType->id;
                             continue;
                         }
                     }
+                    $data['quantity'] = $qty;
                     $newType = TicketType::create(array_merge($data, ['event_id' => $event->id]));
                     $ids[] = $newType->id;
                 }

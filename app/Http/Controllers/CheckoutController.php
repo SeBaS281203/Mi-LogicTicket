@@ -8,11 +8,15 @@ use App\Models\OrderItem;
 use App\Models\Ticket;
 use App\Models\TicketType;
 use App\Services\CartSummaryService;
+use App\Services\MercadoPagoService;
+use App\Services\StripeService;
 use App\Services\TicketPdfService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
 
@@ -22,39 +26,80 @@ class CheckoutController extends Controller
     {
         $cart = session('cart', []);
         if (empty($cart)) {
-            return redirect()->route('cart.index')->with('error', 'Tu carrito está vacío.');
+            return redirect()->route('cart.index')->with('error', 'No hay entradas en tu resumen.');
         }
 
         $summary = $cartSummary->buildFromCart($cart);
         if (empty($summary['items'])) {
-            return redirect()->route('cart.index')->with('error', 'No hay entradas válidas en el carrito.');
+            session()->forget('cart');
+            return redirect()->route('cart.index')->with('error', 'No hay entradas válidas. El stock pudo haber cambiado.');
         }
+
+        if (!empty($summary['warnings'])) {
+            session(['cart' => $summary['adjusted_cart']]);
+        }
+
+        $paymentDriver = config('logic-ticket.payment_driver', 'stripe');
+        $paymentProviderName = match ($paymentDriver) {
+            'stripe' => 'Stripe',
+            'mercadopago' => 'Mercado Pago',
+            default => 'ChiclayoTicket',
+        };
+
+        $useStripe = config('logic-ticket.stripe.enabled') && ($paymentDriver === 'stripe' || $paymentDriver === '');
+
+        $itemsForFrontend = collect($summary['items'])->map(function ($item) {
+            $tt = $item->ticket_type;
+            $qty = (int) $item->quantity;
+            $unitPrice = (float) ($tt->price ?? 0);
+            return [
+                'ticket_type' => [
+                    'id' => $tt->id,
+                    'name' => $tt->name,
+                    'price' => $unitPrice,
+                    'event' => ['title' => $tt->event->title ?? 'Evento'],
+                ],
+                'quantity' => $qty,
+                'unit_price' => $unitPrice,
+                'subtotal' => $item->subtotal ?? ($unitPrice * $qty),
+            ];
+        })->values()->all();
 
         return view('checkout.index', [
             'items' => $summary['items'],
+            'items_for_js' => $itemsForFrontend,
             'subtotal' => $summary['subtotal'],
             'commission_amount' => $summary['commission_amount'],
             'commission_percentage' => $cartSummary->getCommissionPercentage(),
             'total' => $summary['total'],
+            'warnings' => $summary['warnings'] ?? [],
+            'payment_provider_name' => $paymentProviderName,
+            'stripe_enabled' => $useStripe,
+            'stripe_key' => $useStripe ? (config('services.stripe.key') ?? '') : '',
         ]);
     }
 
-    public function store(Request $request, CartSummaryService $cartSummary): RedirectResponse
+    public function store(Request $request, CartSummaryService $cartSummary): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'customer_name' => 'required|string|max:255',
             'customer_email' => 'required|email',
             'customer_phone' => 'nullable|string|max:20',
+            'accept_terms' => 'required|accepted',
+        ], [
+            'accept_terms.required' => 'Debes aceptar los términos y condiciones para continuar.',
+            'accept_terms.accepted' => 'Debes aceptar los términos y condiciones.',
         ]);
 
         $cart = session('cart', []);
         if (empty($cart)) {
-            return redirect()->route('cart.index')->with('error', 'Carrito vacío.');
+            return redirect()->route('cart.index')->with('error', 'Resumen vacío.');
         }
 
         $summary = $cartSummary->buildFromCart($cart);
         if (empty($summary['items'])) {
-            return redirect()->route('cart.index')->with('error', 'Algunas entradas ya no están disponibles. Revisa el carrito.');
+            session()->forget('cart');
+            return redirect()->route('cart.index')->with('error', 'Las entradas seleccionadas ya no están disponibles. Por favor, elige otras.');
         }
 
         $subtotal = $summary['subtotal'];
@@ -65,7 +110,10 @@ class CheckoutController extends Controller
         try {
             $order = $this->createOrderWithLock($validated, $items, $subtotal, $commissionAmount, $total);
         } catch (\RuntimeException $e) {
-            return redirect()->route('cart.index')->with('error', $e->getMessage());
+            return redirect()->route('cart.index')->with('error', 'No se pudo completar la compra: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            report($e);
+            return back()->with('error', 'Ocurrió un error inesperado. Por favor, intenta de nuevo.');
         }
 
         $paymentDriver = config('logic-ticket.payment_driver', 'stripe');
@@ -73,15 +121,148 @@ class CheckoutController extends Controller
         $useMercadoPago = config('logic-ticket.mercadopago.enabled') && $paymentDriver === 'mercadopago';
 
         if ($useStripe) {
-            return $this->redirectToStripe($order, $items, $total);
+            try {
+                $redirectUrl = app(StripeService::class)->createCheckoutSession($order);
+                return $request->ajax() ? response()->json(['redirect' => $redirectUrl]) : redirect()->away($redirectUrl);
+            } catch (\Throwable $e) {
+                report($e);
+
+                // Fallback automático a Mercado Pago cuando Stripe está caído o mal configurado.
+                if (config('logic-ticket.mercadopago.enabled')) {
+                    try {
+                        $preference = app(MercadoPagoService::class)->createPreference($order);
+                        return $request->ajax()
+                            ? response()->json(['redirect' => $preference->init_point, 'provider' => 'mercadopago'])
+                            : redirect()->away($preference->init_point);
+                    } catch (\Throwable $mpError) {
+                        report($mpError);
+                    }
+                }
+
+                // Entorno local: completar compra sin pasarela para no bloquear QA/desarrollo.
+                if (app()->environment(['local', 'testing'])) {
+                    $redirect = $this->confirmOrderWithoutGateway($order)->getTargetUrl();
+                    return $request->ajax()
+                        ? response()->json(['redirect' => $redirect, 'provider' => 'manual'])
+                        : redirect()->to($redirect)->with('info', 'Pago completado en modo local.');
+                }
+
+                return $request->ajax()
+                    ? response()->json(['message' => 'Error al iniciar el pago. Verifica la configuración de Stripe.'], 500)
+                    : back()->with('error', 'Error al iniciar el pago. Verifica la configuración de Stripe.');
+            }
         }
 
         if ($useMercadoPago) {
-            return $this->redirectToMercadoPago($order, $items, $total);
+            try {
+                $preference = app(MercadoPagoService::class)->createPreference($order);
+                return $request->ajax() 
+                    ? response()->json(['redirect' => $preference->init_point]) 
+                    : redirect()->away($preference->init_point);
+            } catch (\Throwable $e) {
+                report($e);
+
+                if (app()->environment(['local', 'testing'])) {
+                    $redirect = $this->confirmOrderWithoutGateway($order)->getTargetUrl();
+                    return $request->ajax()
+                        ? response()->json(['redirect' => $redirect, 'provider' => 'manual'])
+                        : redirect()->to($redirect)->with('info', 'Pago completado en modo local.');
+                }
+
+                return $request->ajax()
+                    ? response()->json(['error' => 'Error al conectar con Mercado Pago.'], 500)
+                    : back()->with('error', 'Error al conectar con Mercado Pago. Intenta de nuevo.');
+            }
         }
 
         // Sin pasarela: marcar como pagado, crear tickets, enviar email con PDF
+        if ($request->ajax()) {
+            $this->confirmOrderWithoutGateway($order);
+            return response()->json(['redirect' => route('orders.confirmation', ['order' => $order])]);
+        }
+
         return $this->confirmOrderWithoutGateway($order);
+    }
+
+    /**
+     * Crea la orden y un PaymentIntent de Stripe para pago con tarjeta en la misma página (Elements).
+     */
+    public function createPaymentIntent(Request $request, CartSummaryService $cartSummary): JsonResponse
+    {
+        $validated = $request->validate([
+            'customer_name' => 'required|string|max:255',
+            'customer_email' => 'required|email',
+            'customer_phone' => 'nullable|string|max:20',
+            'accept_terms' => 'required|accepted',
+        ], [
+            'accept_terms.required' => 'Debes aceptar los términos y condiciones.',
+            'accept_terms.accepted' => 'Debes aceptar los términos y condiciones.',
+        ]);
+
+        $cart = session('cart', []);
+        if (empty($cart)) {
+            return response()->json(['message' => 'Resumen vacío.'], 422);
+        }
+
+        $summary = $cartSummary->buildFromCart($cart);
+        if (empty($summary['items'])) {
+            session()->forget('cart');
+            return response()->json(['message' => 'Las entradas ya no están disponibles.'], 422);
+        }
+
+        $subtotal = $summary['subtotal'];
+        $commissionAmount = $summary['commission_amount'];
+        $total = $summary['total'];
+        $items = $summary['items'];
+
+        try {
+            $order = $this->createOrderWithLock($validated, $items, $subtotal, $commissionAmount, $total);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Error inesperado. Intenta de nuevo.'], 500);
+        }
+
+        if (! config('logic-ticket.stripe.enabled')) {
+            if (config('logic-ticket.mercadopago.enabled')) {
+                try {
+                    $preference = app(MercadoPagoService::class)->createPreference($order);
+                    return response()->json(['redirect' => $preference->init_point, 'provider' => 'mercadopago']);
+                } catch (\Throwable $mpError) {
+                    report($mpError);
+
+                    if (app()->environment(['local', 'testing'])) {
+                        $redirect = $this->confirmOrderWithoutGateway($order)->getTargetUrl();
+                        return response()->json(['redirect' => $redirect, 'provider' => 'manual']);
+                    }
+                }
+            }
+            return response()->json(['message' => 'Pago con tarjeta no disponible.'], 503);
+        }
+
+        try {
+            $clientSecret = app(StripeService::class)->createPaymentIntent($order);
+            return response()->json(['client_secret' => $clientSecret, 'order_id' => $order->id]);
+        } catch (\Throwable $e) {
+            report($e);
+            // Fallback automático a Mercado Pago si Stripe falla (ej: API key inválida).
+            if (config('logic-ticket.mercadopago.enabled')) {
+                try {
+                    $preference = app(MercadoPagoService::class)->createPreference($order);
+                    return response()->json(['redirect' => $preference->init_point, 'provider' => 'mercadopago']);
+                } catch (\Throwable $mpError) {
+                    report($mpError);
+                }
+            }
+
+            if (app()->environment(['local', 'testing'])) {
+                $redirect = $this->confirmOrderWithoutGateway($order)->getTargetUrl();
+                return response()->json(['redirect' => $redirect, 'provider' => 'manual']);
+            }
+
+            return response()->json(['message' => 'Error al iniciar el pago. Verifica la configuración de Stripe.'], 500);
+        }
     }
 
     /**
@@ -134,111 +315,15 @@ class CheckoutController extends Controller
         });
     }
 
-    private function redirectToStripe(Order $order, array $items, float $total): RedirectResponse
-    {
-        try {
-            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-            $currency = config('services.stripe.currency', 'pen');
-            $lineItems = array_map(function ($item) use ($currency) {
-                return [
-                    'price_data' => [
-                        'currency' => $currency,
-                        'product_data' => [
-                            'name' => $item->ticket_type->event->title . ' - ' . $item->ticket_type->name,
-                            'description' => $item->quantity . ' entrada(s)',
-                        ],
-                        'unit_amount' => (int) round($item->ticket_type->price * 100),
-                    ],
-                    'quantity' => $item->quantity,
-                ];
-            }, $items);
-
-            $order->load('items');
-            $commissionAmount = (float) $order->commission_amount;
-            if ($commissionAmount > 0) {
-                $lineItems[] = [
-                    'price_data' => [
-                        'currency' => $currency,
-                        'product_data' => [
-                            'name' => 'Comisión por servicio',
-                            'description' => config('logic-ticket.commission_percentage', 0) . '%',
-                        ],
-                        'unit_amount' => (int) round($commissionAmount * 100),
-                    ],
-                    'quantity' => 1,
-                ];
-            }
-
-            $session = \Stripe\Checkout\Session::create([
-                'payment_method_types' => ['card'],
-                'line_items' => $lineItems,
-                'mode' => 'payment',
-                'success_url' => route('stripe.success') . '?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => route('stripe.cancel'),
-                'metadata' => ['order_id' => $order->id],
-                'customer_email' => $order->customer_email,
-            ]);
-            session()->forget('cart');
-
-            return redirect()->away($session->url);
-        } catch (\Throwable $e) {
-            report($e);
-            return back()->with('error', 'Error al conectar con la pasarela de pago. Intenta de nuevo.');
-        }
-    }
-
     private function redirectToMercadoPago(Order $order, array $items, float $total): RedirectResponse
     {
         try {
-            $preference = $this->buildMercadoPagoPreference($order, $items, $total);
-            session()->forget('cart');
+            $preference = app(MercadoPagoService::class)->createPreference($order);
             return redirect()->away($preference->init_point);
         } catch (\Throwable $e) {
             report($e);
             return back()->with('error', 'Error al conectar con Mercado Pago. Intenta de nuevo.');
         }
-    }
-
-    private function buildMercadoPagoPreference(Order $order, array $items, float $total): \MercadoPago\Resources\Preference
-    {
-        \MercadoPago\MercadoPagoConfig::setAccessToken(config('logic-ticket.mercadopago.access_token'));
-
-        $preferenceItems = [];
-        foreach ($items as $item) {
-            $preferenceItems[] = [
-                'title' => $item->ticket_type->event->title . ' - ' . $item->ticket_type->name,
-                'quantity' => $item->quantity,
-                'unit_price' => (float) $item->ticket_type->price,
-                'currency_id' => config('logic-ticket.mercadopago.currency', 'PEN'),
-            ];
-        }
-        $commissionAmount = (float) $order->commission_amount;
-        if ($commissionAmount > 0) {
-            $preferenceItems[] = [
-                'title' => 'Comisión por servicio',
-                'quantity' => 1,
-                'unit_price' => $commissionAmount,
-                'currency_id' => config('logic-ticket.mercadopago.currency', 'PEN'),
-            ];
-        }
-
-        $client = new \MercadoPago\Client\Preference\PreferenceClient();
-        $preference = $client->create([
-            'items' => $preferenceItems,
-            'payer' => [
-                'email' => $order->customer_email,
-                'name' => $order->customer_name,
-            ],
-            'back_urls' => [
-                'success' => route('mercadopago.success'),
-                'failure' => route('mercadopago.failure'),
-                'pending' => route('mercadopago.pending'),
-            ],
-            'auto_return' => 'approved',
-            'external_reference' => (string) $order->id,
-        ]);
-
-        return $preference;
     }
 
     private function confirmOrderWithoutGateway(Order $order): RedirectResponse
@@ -292,8 +377,9 @@ class CheckoutController extends Controller
         try {
             $pdfService = app(TicketPdfService::class);
             $pdfContent = $pdfService->generateOrderTicketsPdfContent($order);
-            Mail::to($order->customer_email)->send(new OrderConfirmation($order, $pdfContent));
+            Mail::to($order->customer_email)->queue(new OrderConfirmation($order, $pdfContent));
         } catch (\Throwable $e) {
+            Log::error('Order Confirmation Email Error: ' . $e->getMessage());
             report($e);
         }
     }

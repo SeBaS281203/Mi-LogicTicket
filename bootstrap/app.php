@@ -15,6 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'organizer' => \App\Http\Middleware\EnsureUserIsOrganizer::class,
             'client' => \App\Http\Middleware\EnsureUserIsClient::class,
+            'can_purchase' => \App\Http\Middleware\EnsureUserCanPurchase::class,
+        ]);
+        $middleware->appendToGroup('web', \App\Http\Middleware\SecurityHeadersMiddleware::class);
+        $middleware->validateCsrfTokens(except: [
+            'api/payments/webhook',
+            'api/stripe/webhook',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

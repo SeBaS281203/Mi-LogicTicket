@@ -1,11 +1,11 @@
-@extends('layouts.app')
+@extends('layouts.organizer')
 
 @section('title', 'Nuevo evento')
 
 @section('content')
-<h1 class="text-3xl font-bold mb-6">Nuevo evento</h1>
+<h1 class="text-2xl font-bold text-slate-800 mb-6">Nuevo evento</h1>
 
-<form method="POST" action="{{ route('organizer.events.store') }}" class="space-y-6 max-w-3xl">
+<form method="POST" action="{{ route('organizer.events.store') }}" enctype="multipart/form-data" class="space-y-6 max-w-3xl">
     @csrf
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
         <h2 class="font-semibold text-lg">Información general</h2>
@@ -26,6 +26,12 @@
             <label for="description" class="block text-sm font-medium text-slate-700 mb-1">Descripción *</label>
             <textarea name="description" id="description" rows="4" required class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('description') }}</textarea>
             @error('description')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+        </div>
+        <div>
+            <label for="event_image" class="block text-sm font-medium text-slate-700 mb-1">Imagen de portada</label>
+            <input type="file" name="event_image" id="event_image" accept="image/*" class="w-full rounded-xl border border-slate-200 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20">
+            <p class="mt-1 text-xs text-slate-500">JPG, PNG o WebP. Máx. 2 MB.</p>
+            @error('event_image')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
         </div>
         <div>
             <label for="venue_name" class="block text-sm font-medium text-slate-700 mb-1">Nombre del lugar *</label>
@@ -74,12 +80,12 @@
                 <input type="text" name="ticket_types[0][description]" placeholder="Descripción (opcional)" class="flex-1 min-w-[120px] rounded-lg border-slate-300 shadow-sm">
             </div>
         </div>
-        <button type="button" id="add-ticket-type" class="mt-2 text-sm text-indigo-600 hover:underline">+ Añadir otro tipo de entrada</button>
+        <button type="button" id="add-ticket-type" class="mt-2 text-sm text-emerald-600 hover:underline font-medium">+ Añadir otro tipo de entrada</button>
     </div>
 
-    <div class="flex gap-2">
-        <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Crear evento</button>
-        <a href="{{ route('organizer.events.index') }}" class="px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300">Cancelar</a>
+    <div class="flex gap-3">
+        <button type="submit" class="px-6 py-2.5 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700">Crear evento</button>
+        <a href="{{ route('organizer.events.index') }}" class="px-6 py-2.5 bg-slate-100 text-slate-700 font-medium rounded-xl hover:bg-slate-200">Cancelar</a>
     </div>
 </form>
 

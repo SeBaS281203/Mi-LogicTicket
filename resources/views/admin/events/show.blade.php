@@ -3,20 +3,28 @@
 @section('title', $event->title)
 
 @section('content')
-<div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold">{{ $event->title }}</h1>
-    <div class="flex gap-2">
+<div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+    <h1 class="text-3xl font-bold text-slate-900">{{ $event->title }}</h1>
+    <div class="flex flex-wrap gap-2">
+        <a href="{{ route('admin.events.edit', $event) }}" class="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium">Editar</a>
         @if($event->status === 'pending_approval')
-            <form method="POST" action="{{ route('admin.events.approve', $event) }}">
+            <form method="POST" action="{{ route('admin.events.approve', $event) }}" class="inline">
                 @csrf
-                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Aprobar y publicar</button>
+                <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-medium">Aprobar y publicar</button>
             </form>
-            <form method="POST" action="{{ route('admin.events.reject', $event) }}" onsubmit="return confirm('¿Rechazar evento?')">
+            <form method="POST" action="{{ route('admin.events.reject', $event) }}" class="inline" onsubmit="return confirm('¿Rechazar evento?')">
                 @csrf
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Rechazar</button>
+                <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-medium">Rechazar</button>
             </form>
         @endif
-        <a href="{{ route('admin.events.index') }}" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300">Volver</a>
+        @if($event->status !== 'cancelled')
+            <form method="POST" action="{{ route('admin.events.destroy', $event) }}" class="inline" onsubmit="return confirm('¿Cancelar este evento? Se marcará como cancelado.')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="px-4 py-2 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 font-medium">Cancelar evento</button>
+            </form>
+        @endif
+        <a href="{{ route('admin.events.index') }}" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium">Volver</a>
     </div>
 </div>
 

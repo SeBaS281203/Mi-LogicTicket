@@ -6,6 +6,8 @@ use App\Http\Requests\StoreEventRequest;
 use App\Http\Requests\UpdateEventRequest;
 use App\Models\Banner;
 use App\Models\Category;
+use App\Models\Tendencia;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Event;
 use App\Models\TicketType;
 use Illuminate\Http\RedirectResponse;
@@ -26,12 +28,11 @@ class EventController extends Controller
         if ($request->filled('category_slug')) {
             $category = Category::where('slug', $request->category_slug)->where('is_active', true)->first();
             if ($category) {
-                $params = $request->only(['q', 'city', 'date']);
+                $params = $request->only(['q', 'city', 'date', 'price_max', 'venue']);
                 $params['category'] = $category->id;
                 return redirect()->route('events.index', $params);
             }
-            // Slug inexistente: quitar category_slug y seguir sin filtro de categoría
-            $params = $request->only(['q', 'city', 'date', 'category']);
+            $params = $request->only(['q', 'city', 'date', 'category', 'price_max', 'venue']);
             return redirect()->route('events.index', $params);
         }
 
@@ -56,9 +57,17 @@ class EventController extends Controller
                     ->orWhere('description', 'like', '%' . $term . '%');
             });
         }
+        if ($request->filled('venue')) {
+            $query->where('venue_name', 'like', '%' . $request->venue . '%');
+        }
+        if ($request->filled('price_max') && is_numeric($request->price_max)) {
+            $query->whereHas('ticketTypes', function ($q) use ($request) {
+                $q->where('price', '<=', (float) $request->price_max);
+            });
+        }
 
         $events = $query->orderBy('start_date')->paginate(12)->withQueryString();
-        $categories = Category::where('is_active', true)->orderBy('name')->get();
+        $categories = Cache::remember('categories_active', 3600, fn () => Category::where('is_active', true)->orderBy('name')->get());
         // Carrusel "Los más populares": siempre con eventos destacados (sin filtros de búsqueda)
         $featuredEvents = Event::query()
             ->published()
@@ -71,9 +80,14 @@ class EventController extends Controller
         if ($featuredEvents->isEmpty() && $events->count() > 0) {
             $featuredEvents = $events->take(12);
         }
-        $banners = Banner::active()->orderBy('sort_order')->get();
+        $banners = Cache::remember('banners_active', 3600, fn () => Banner::active()->orderBy('sort_order')->get());
+        try {
+            $tendencias = Cache::remember('tendencias_active', 3600, fn () => Tendencia::active()->orderBy('orden')->get());
+        } catch (\Throwable $e) {
+            $tendencias = collect();
+        }
 
-        return view('events.index', compact('events', 'categories', 'featuredEvents', 'banners'));
+        return view('events.index', compact('events', 'categories', 'featuredEvents', 'banners', 'tendencias'));
     }
 
     /**
@@ -82,7 +96,7 @@ class EventController extends Controller
     public function show(string $slug): View|RedirectResponse
     {
         $event = Event::where('slug', $slug)
-            ->with(['category', 'ticketTypes'])
+            ->with(['category', 'ticketTypes', 'user'])
             ->firstOrFail();
 
         if ($event->status !== 'published') {

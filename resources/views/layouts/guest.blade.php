@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Iniciar sesión') | {{ config('app.name') }}</title>
-    <meta name="description" content="@yield('meta_description', 'Inicia sesión en LogicTicket. Compra entradas para conciertos, deportes y más.')">
+    <meta name="description" content="@yield('meta_description', 'Inicia sesión en ChiclayoTicket. Compra entradas para conciertos, deportes y más.')">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="theme-color" content="#00a650">
+    <meta name="theme-color" content="#7c3aed">
     <link rel="canonical" href="{{ url()->current() }}">
 
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
@@ -20,7 +20,7 @@
                     extend: {
                         fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
                         colors: {
-                            brand: { DEFAULT: '#00a650', hover: '#009345', light: '#e6f7ef' },
+                            brand: { DEFAULT: '#7c3aed', hover: '#6d28d9', light: '#ede9fe' },
                             surface: '#f5f7fa'
                         },
                         borderRadius: { card: '1rem', 'card-lg': '1.25rem' },
@@ -33,7 +33,7 @@
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
     <style>
-        [data-ds] { --brand: #00a650; --brand-hover: #009345; --surface: #f5f7fa; --duration-global: 300ms; }
+        [data-ds] { --brand: #7c3aed; --brand-hover: #6d28d9; --surface: #f5f7fa; --duration-global: 300ms; }
     </style>
     @stack('styles')
 </head>
