@@ -22,13 +22,13 @@ SET time_zone = "+00:00";
 -- Base de datos: `logicticket`
 --
 
-DELIMITER $$
+
 --
 -- Procedimientos
 --
-CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_approve_event` (IN `p_event_id` INT)   UPDATE events SET status = 'published' WHERE id = p_event_id AND status = 'pending_approval'$$
+CREATE  PROCEDURE `sp_approve_event` (IN `p_event_id` INT)   UPDATE events SET status = 'published' WHERE id = p_event_id AND status = 'pending_approval';
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_dashboard_stats` ()   SELECT
+CREATE  PROCEDURE `sp_dashboard_stats` ()   SELECT
                 (SELECT COUNT(*) FROM users) AS total_users,
                 (SELECT COUNT(*) FROM users WHERE role = 'organizer') AS total_organizers,
                 (SELECT COUNT(*) FROM events) AS total_events,
@@ -36,20 +36,20 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_dashboard_stats` ()   SELECT
                 (SELECT COUNT(*) FROM events WHERE status = 'pending_approval') AS events_pending,
                 (SELECT COUNT(*) FROM events WHERE status = 'published' AND start_date >= CURDATE()) AS events_active,
                 (SELECT COUNT(*) FROM orders WHERE status = 'paid') AS total_orders,
-                (SELECT COALESCE(SUM(total), 0) FROM orders WHERE status = 'paid') AS total_revenue$$
+                (SELECT COALESCE(SUM(total), 0) FROM orders WHERE status = 'paid') AS total_revenue;
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_reject_event` (IN `p_event_id` INT)   UPDATE events SET status = 'draft' WHERE id = p_event_id AND status = 'pending_approval'$$
+CREATE  PROCEDURE `sp_reject_event` (IN `p_event_id` INT)   UPDATE events SET status = 'draft' WHERE id = p_event_id AND status = 'pending_approval';
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_revenue_by_month` ()   SELECT
+CREATE  PROCEDURE `sp_revenue_by_month` ()   SELECT
                 DATE_FORMAT(created_at, '%Y-%m') AS month,
                 COALESCE(SUM(total), 0) AS revenue
             FROM orders
             WHERE status = 'paid'
               AND created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
             GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-            ORDER BY month$$
+            ORDER BY month;
 
-DELIMITER ;
+
 
 -- --------------------------------------------------------
 
