@@ -17,12 +17,12 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // 1. FORZAR HTTPS EN RENDER
+        // 1. Forzar HTTPS
         if (env('APP_ENV') === 'production') {
             URL::forceScheme('https');
         }
 
-        // 2. COMPARTIR CATEGORÍAS EN EL MENÚ (Tu código recuperado)
+        // 2. Categorías del Menú
         $shareCategories = function ($view) {
             $view->with('categories', Cache::remember('categories_active', 3600, fn() => \App\Models\Category::where('is_active', true)->orderBy('name')->get()));
         };
