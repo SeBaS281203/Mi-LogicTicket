@@ -10,15 +10,23 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(\App\Services\CartSummaryService::class, fn () => new \App\Services\CartSummaryService());
-        $this->app->singleton(\App\Services\ImageOptimizationService::class, fn () => new \App\Services\ImageOptimizationService());
+        $this->app->singleton(\App\Services\CartSummaryService::class, fn() => new \App\Services\CartSummaryService());
+        $this->app->singleton(\App\Services\ImageOptimizationService::class, fn() => new \App\Services\ImageOptimizationService());
     }
 
     public function boot(): void
     {
+        // 1. FORZAR HTTPS EN RENDER (Nuestro nuevo código)
+        if (env('APP_ENV') === 'production') {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
+        // 2. TU CÓDIGO ORIGINAL (¡Déjalo tal cual lo tenías!)
         $shareCategories = function ($view) {
-            $view->with('categories', Cache::remember('categories_active', 3600, fn () => \App\Models\Category::where('is_active', true)->orderBy('name')->get()));
+            // (Aquí va el código que ya tenías sobre Cache::remember...)
+            // ... yo lo abrevio aquí, pero tú deja tu línea completa original.
         };
-        View::composer(['components.search-modal', 'components.navbar'], $shareCategories);
+        \Illuminate\Support\Facades\View::composer(['components.search-modal', 'components.navbar'], $shareCategories);
     }
+
 }
